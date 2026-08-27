@@ -31,7 +31,7 @@ from app.models import (
     Status,
     UserMessage,
 )
-from app.providers import manual, services, tmdb
+from app.providers import manual, services, tmdb, xmdb
 from app.templatetags import app_tags
 from events.models import Event
 from users.models import (
@@ -336,7 +336,8 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
                 )
 
     if media_type in ["tv", "movie"]:
-        watch_providers = tmdb.filter_providers(
+        provider_mod = xmdb if source == Sources.XMDB.value else tmdb
+        watch_providers = provider_mod.filter_providers(
             media_metadata.get("providers"), request.user.watch_provider_region
         )
     else:
@@ -385,6 +386,11 @@ def season_details(request, source, media_id, title, season_number):  # noqa: AR
             season_metadata,
             episodes_in_db,
         )
+    elif source == Sources.XMDB.value:
+        season_metadata["episodes"] = xmdb.process_episodes(
+            season_metadata,
+            episodes_in_db,
+        )
     else:
         season_metadata["episodes"] = tmdb.process_episodes(
             season_metadata,
@@ -409,7 +415,7 @@ def season_details(request, source, media_id, title, season_number):  # noqa: AR
         "media_type": MediaTypes.SEASON.value,
         "user_medias": user_medias,
         "current_instance": current_instance,
-        "watch_providers": tmdb.filter_providers(
+        "watch_providers": (xmdb if source == Sources.XMDB.value else tmdb).filter_providers(
             season_metadata.get("providers"), request.user.watch_provider_region
         ),
         "watch_provider_region": request.user.watch_provider_region,
@@ -487,7 +493,8 @@ def sync_metadata(request, source, media_type, media_id, season_number=None):
             title += f" - Season {season_number}"
 
         if media_type == MediaTypes.SEASON.value:
-            metadata["episodes"] = tmdb.process_episodes(
+            processor = xmdb.process_episodes if source == Sources.XMDB.value else tmdb.process_episodes
+            metadata["episodes"] = processor(
                 metadata,
                 [],
             )

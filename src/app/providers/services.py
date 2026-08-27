@@ -20,6 +20,7 @@ from app.providers import (
     manual,
     openlibrary,
     tmdb,
+    xmdb,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,10 @@ session.mount(
 )
 session.mount(
     "https://boardgamegeek.com/xmlapi2",
+    LimiterAdapter(per_second=2),
+)
+session.mount(
+    "https://xmdbapi.com/api",
     LimiterAdapter(per_second=2),
 )
 
@@ -202,6 +207,10 @@ def api_request(
         raise error from None
 
 
+def _is_xmdb_source(source):
+    return source == Sources.XMDB.value
+
+
 def get_media_metadata(
     media_type,
     media_id,
@@ -219,6 +228,8 @@ def get_media_metadata(
             media_type = MediaTypes.TV.value
         return manual.metadata(media_id, media_type)
 
+    is_xmdb = _is_xmdb_source(source)
+
     metadata_retrievers = {
         MediaTypes.ANIME.value: lambda: mal.anime(media_id),
         MediaTypes.MANGA.value: lambda: (
@@ -226,17 +237,29 @@ def get_media_metadata(
             if source == Sources.MANGAUPDATES.value
             else mal.manga(media_id)
         ),
-        MediaTypes.TV.value: lambda: tmdb.tv(media_id),
-        "tv_with_seasons": lambda: tmdb.tv_with_seasons(media_id, season_numbers),
-        MediaTypes.SEASON.value: lambda: tmdb.tv_with_seasons(media_id, season_numbers)[
-            f"season/{season_numbers[0]}"
-        ],
-        MediaTypes.EPISODE.value: lambda: tmdb.episode(
-            media_id,
-            season_numbers[0],
-            episode_number,
+        MediaTypes.TV.value: lambda: xmdb.tv(media_id) if is_xmdb else tmdb.tv(media_id),
+        "tv_with_seasons": lambda: (
+            xmdb.tv_with_seasons(media_id, season_numbers)
+            if is_xmdb
+            else tmdb.tv_with_seasons(media_id, season_numbers)
         ),
-        MediaTypes.MOVIE.value: lambda: tmdb.movie(media_id),
+        MediaTypes.SEASON.value: lambda: (
+            xmdb.tv_with_seasons(media_id, season_numbers)[f"season/{season_numbers[0]}"]
+            if is_xmdb
+            else tmdb.tv_with_seasons(media_id, season_numbers)[
+                f"season/{season_numbers[0]}"
+            ]
+        ),
+        MediaTypes.EPISODE.value: lambda: (
+            xmdb.episode(media_id, season_numbers[0], episode_number)
+            if is_xmdb
+            else tmdb.episode(
+                media_id,
+                season_numbers[0],
+                episode_number,
+            )
+        ),
+        MediaTypes.MOVIE.value: lambda: xmdb.movie(media_id) if is_xmdb else tmdb.movie(media_id),
         MediaTypes.GAME.value: lambda: igdb.game(media_id),
         MediaTypes.BOOK.value: lambda: (
             hardcover.book(media_id)
@@ -251,6 +274,7 @@ def get_media_metadata(
 
 def search(media_type, query, page, source=None):
     """Search for media based on the query and return the results."""
+    is_xmdb = source == Sources.XMDB.value
     search_handlers = {
         MediaTypes.MANGA.value: lambda: (
             mangaupdates.search(query, page)
@@ -258,10 +282,10 @@ def search(media_type, query, page, source=None):
             else mal.search(media_type, query, page)
         ),
         MediaTypes.ANIME.value: lambda: mal.search(media_type, query, page),
-        MediaTypes.TV.value: lambda: tmdb.search(media_type, query, page),
-        MediaTypes.MOVIE.value: lambda: tmdb.search(media_type, query, page),
-        MediaTypes.SEASON.value: lambda: tmdb.search(MediaTypes.TV.value, query, page),
-        MediaTypes.EPISODE.value: lambda: tmdb.search(MediaTypes.TV.value, query, page),
+        MediaTypes.TV.value: lambda: xmdb.search(media_type, query, page) if is_xmdb else tmdb.search(media_type, query, page),
+        MediaTypes.MOVIE.value: lambda: xmdb.search(media_type, query, page) if is_xmdb else tmdb.search(media_type, query, page),
+        MediaTypes.SEASON.value: lambda: xmdb.search(MediaTypes.TV.value, query, page) if is_xmdb else tmdb.search(MediaTypes.TV.value, query, page),
+        MediaTypes.EPISODE.value: lambda: xmdb.search(MediaTypes.TV.value, query, page) if is_xmdb else tmdb.search(MediaTypes.TV.value, query, page),
         MediaTypes.GAME.value: lambda: igdb.search(query, page),
         MediaTypes.BOOK.value: lambda: (
             openlibrary.search(query, page)

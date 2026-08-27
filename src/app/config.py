@@ -1,7 +1,44 @@
+from django.conf import settings
 from django.urls import reverse
 from django.utils.http import urlencode
 
 from app.models import MediaTypes, Sources, Status
+
+
+def _is_tmdb_available():
+    return bool(getattr(settings, "TMDB_API", None))
+
+
+def _is_xmdb_available():
+    return bool(getattr(settings, "XMDB_API", None))
+
+
+def _get_available_sources_for_media_type(media_type):
+    """Return sources filtered by env availability; falls back to configured list."""
+    config = MEDIA_TYPE_CONFIG.get(media_type)
+    if not config:
+        return []
+    configured = config.get("sources", [])
+    available = []
+    for src in configured:
+        if src == Sources.TMDB and not _is_tmdb_available():
+            continue
+        if src == Sources.XMDB and not _is_xmdb_available():
+            continue
+        available.append(src)
+    # If filtering removed everything (e.g. no keys), return configured to avoid empty
+    return available or configured
+
+
+def _get_default_source_for_media_type(media_type):
+    """TMDB default when both available, else the single available."""
+    available = _get_available_sources_for_media_type(media_type)
+    if not available:
+        return MEDIA_TYPE_CONFIG[media_type]["default_source"]
+    # Both available -> prefer TMDB per spec
+    if Sources.TMDB in available and Sources.XMDB in available:
+        return Sources.TMDB
+    return available[0]
 
 # --- Color Constants ---
 COLORS = {
@@ -71,7 +108,7 @@ COLORS = {
 # --- Central Configuration Dictionary ---
 MEDIA_TYPE_CONFIG = {
     MediaTypes.TV.value: {
-        "sources": [Sources.TMDB],
+        "sources": [Sources.TMDB, Sources.XMDB],
         "default_source": Sources.TMDB,
         "sample_query": "Breaking Bad",
         "unicode_icon": "📺",
@@ -83,7 +120,7 @@ MEDIA_TYPE_CONFIG = {
             <polyline points="17 2 12 7 7 2"/>""",
     },
     MediaTypes.SEASON.value: {
-        "sources": [Sources.TMDB],
+        "sources": [Sources.TMDB, Sources.XMDB],
         "default_source": Sources.TMDB,
         "unicode_icon": "📺",
         "verb": ("watch", "watched"),
@@ -97,7 +134,7 @@ MEDIA_TYPE_CONFIG = {
         "unit": ("E", "Episode"),
     },
     MediaTypes.EPISODE.value: {
-        "sources": [Sources.TMDB],
+        "sources": [Sources.TMDB, Sources.XMDB],
         "default_source": Sources.TMDB,
         "unicode_icon": "📺",
         "verb": ("watch", "watched"),
@@ -106,7 +143,7 @@ MEDIA_TYPE_CONFIG = {
         "svg_icon": """<polygon points="6 3 20 12 6 21 6 3"/>""",
     },
     MediaTypes.MOVIE.value: {
-        "sources": [Sources.TMDB],
+        "sources": [Sources.TMDB, Sources.XMDB],
         "default_source": Sources.TMDB,
         "sample_query": "The Shawshank Redemption",
         "unicode_icon": "🎬",
@@ -297,13 +334,13 @@ def get_property(media_type, prop_name):
 
 
 def get_sources(media_type):
-    """Get the list of sources for a media type."""
-    return get_property(media_type, "sources")
+    """Get the list of sources for a media type (filtered by env)."""
+    return _get_available_sources_for_media_type(media_type)
 
 
 def get_default_source_name(media_type):
-    """Get the human-readable default source name."""
-    return get_property(media_type, "default_source")
+    """Get the default source, env-aware (TMDB preferred when both)."""
+    return _get_default_source_for_media_type(media_type)
 
 
 def get_sample_query(media_type):

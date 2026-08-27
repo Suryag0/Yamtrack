@@ -39,6 +39,7 @@ class Sources(models.TextChoices):
     """Choices for the source of the item."""
 
     TMDB = "tmdb", "The Movie Database"
+    XMDB = "xmdb", "XMDb"
     MAL = "mal", "MyAnimeList"
     MANGAUPDATES = "mangaupdates", "MangaUpdates"
     IGDB = "igdb", "Internet Game Database"
@@ -1562,7 +1563,8 @@ class Season(Media):
             # start watching from the first episode
             next_episode_number = episodes[0]["episode_number"]
         else:
-            next_episode_number = providers.tmdb.find_next_episode(
+            _provider = providers.xmdb if self.item.source == Sources.XMDB.value else providers.tmdb
+            next_episode_number = _provider.find_next_episode(
                 self.progress,
                 episodes,
             )

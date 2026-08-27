@@ -373,6 +373,24 @@ TMDB_API = config(
 TMDB_NSFW = config("TMDB_NSFW", default=False, cast=bool)
 TMDB_LANG = config("TMDB_LANG", default="en")
 
+XMDB_API = config(
+    "XMDB_API",
+    default=secret(
+        "XMDB_API_FILE",
+        "",
+    ),
+)
+# Compatibility alias for user-provided key name XMDB_API_KEY
+if not XMDB_API:
+    XMDB_API = config(
+        "XMDB_API_KEY",
+        default=secret(
+            "XMDB_API_KEY_FILE",
+            "",
+        ),
+    )
+XMDB_LANG = config("XMDB_LANG", default="en")
+
 TVDB_API = config(
     "TVDB_API",
     default=secret(

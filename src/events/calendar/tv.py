@@ -8,9 +8,13 @@ from django.db.models import Prefetch
 from django.utils import timezone
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
-from app.models import TV, Item, MediaTypes, Season, Status
-from app.providers import services, tmdb
+from app.models import TV, Item, MediaTypes, Season, Sources, Status
+from app.providers import services, tmdb, xmdb
 from events.models import Event
+
+
+def _get_tv_provider(source):
+    return xmdb if source == Sources.XMDB.value else tmdb
 
 from .helpers import date_parser, resolve_episode_datetimes
 
@@ -50,7 +54,8 @@ def process_tv(tv_item, events_bulk):
 
 def get_seasons_to_process(tv_item):
     """Identify which seasons of a TV show need to be processed."""
-    tv_metadata = tmdb.tv(tv_item.media_id)
+    provider = _get_tv_provider(tv_item.source)
+    tv_metadata = provider.tv(tv_item.media_id)
 
     if not tv_metadata.get("related", {}).get("seasons"):
         logger.warning("No seasons found for TV show: %s", tv_item)
@@ -95,7 +100,8 @@ def get_seasons_to_process(tv_item):
 
 def process_tv_seasons(tv_item, seasons_to_process, events_bulk):
     """Process specific seasons of a TV show."""
-    process_seasons_data = tmdb.tv_with_seasons(
+    provider = _get_tv_provider(tv_item.source)
+    process_seasons_data = provider.tv_with_seasons(
         tv_item.media_id,
         seasons_to_process,
     )

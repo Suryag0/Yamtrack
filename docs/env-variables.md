@@ -9,6 +9,8 @@ This page outlines the environment variables used in the YamTrack project.
 | `TMDB_API`      | The Movie Database API key for movies and TV shows. A default key is provided.                                                                                                                                                                        |
 | `TMDB_NSFW`     | Default to `False`. Set to `True` to include adult content in TV and movie searches.                                                                                                                                                                  |
 | `TMDB_LANG`     | TMDB metadata language. Uses a language code in ISO 639-1 (e.g., `en`). Also supports a country code in ISO 3166-1 (e.g., `en-US`). Metadata is cached for a few hours in Redis. You may need to clear the cache to see the new language immediately. |
+| `XMDB_API`      | XMDb API key for movies and TV shows (alternative to TMDB, `https://xmdbapi.com`). No default key. Set `XMDB_API` or `XMDB_API_KEY`. If both `TMDB_API` and `XMDB_API` are set, **TMDB is default** per spec; if only one is set, that one is used. Empty `TMDB_API` forces XMDB-only. Also supports `XMDB_API_FILE`/`XMDB_API_KEY_FILE` secrets. |
+| `XMDB_LANG`     | XMDb metadata language (e.g., `en`, `tr`). Default `en`. |
 | `MAL_API`       | MyAnimeList API key for anime and manga. A default key is provided.                                                                                                                                                                                   |
 | `MAL_NSFW`      | Default to `False`. Set to `True` to include adult content in anime and manga searches from MyAnimeList.                                                                                                                                              |
 | `MU_NSFW`       | Default to `False`. Set to `True` to include adult content in manga searches from MangaUpdates.                                                                                                                                                       |
@@ -92,6 +94,8 @@ YamTrack supports reading sensitive configuration values from Docker secrets fil
 | `DB_USER`                 | `DB_USER_FILE`                 |
 | `DB_PASSWORD`             | `DB_PASSWORD_FILE`             |
 | `TMDB_API`                | `TMDB_API_FILE`                |
+| `XMDB_API`                | `XMDB_API_FILE`                |
+| `XMDB_API_KEY`            | `XMDB_API_KEY_FILE`            |
 | `MAL_API`                 | `MAL_API_FILE`                 |
 | `IGDB_ID`                 | `IGDB_ID_FILE`                 |
 | `IGDB_SECRET`             | `IGDB_SECRET_FILE`             |
